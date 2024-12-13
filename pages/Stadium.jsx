@@ -55,7 +55,7 @@ const Stadium = () => {
     <div className="flex h-full gap-10">
       <div className="w-full md:w-72">
         <h1 className="font-bold text-lg mb-6">
-          {stadiums.length} Stadium's Around You
+          {stadiums.length} Stadium's Around You!
         </h1>
         <div className="flex flex-col gap-4 h-[80vh] overflow-auto no-scroller">
           {stadiums.map((stadium) => {
