@@ -10,6 +10,7 @@ const EmptyOrders = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full bg-white">
       <p className="font-semibold">Non sono stati trovati ordini attuali</p>
+      <button class="bg-white p-2 rounded-full shadow border hover:opacity-80" style={{ padding: "10px", margin: "10px" }}>Aggiornamento</button>
     </div>
   );
 };
