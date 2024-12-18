@@ -62,7 +62,6 @@ export default function RootLayout({ children }) {
         <meta
           name="theme-color"
           content="#ffffff"
-          media="(prefers-color-scheme: light)"
         />
         <link rel="apple-touch-icon" href="/static/logo192.png" />
         <link rel="manifest" href="/static/manifest.json" />
