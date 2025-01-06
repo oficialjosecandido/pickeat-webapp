@@ -14,9 +14,13 @@ import {
 import ApplyCoupons from "./ApplyCoupons";
 import { toast } from "react-toastify";
 import LoginPopup from "@pages/LoginPopup";
+import CheckoutPage from "@/components/CheckoutPage";
+
 
 // Load the Stripe object
+// const stripePromise = loadStripe(process.env.NEXT_STRIPE_PUBLIC_KEY);
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_PUBLISHER_KEY);
+
 
 const OrderType = ({ onBack, stadiumId, timeSlot }) => {
   const dataContext = useData();
@@ -63,14 +67,14 @@ const OrderType = ({ onBack, stadiumId, timeSlot }) => {
       );
 
       if (!paymentIntent) {
-        console.error("Nessun paymentIntent restituito.");
+        console.error("No paymentIntent returned.");
         return null;
       }
 
       // Return the client secret
       return { clientSecret: paymentIntent.client_secret };
     } catch (error) {
-      console.error("Errore nell'inizializzazione del pagamento", error);
+      console.error("Error initializing payment", error);
       return null;
     } finally {
       setLoading(false);
@@ -112,36 +116,29 @@ const OrderType = ({ onBack, stadiumId, timeSlot }) => {
 
     if (paymentData) {
       const { clientSecret } = paymentData;
-
+      
+      // Set up Elements options with clientSecret
       const elementsOptions = {
         clientSecret,
-        appearance: { theme: "stripe" }, // Optional
+        appearance: { theme: "stripe" }, // Optional, can be customized
       };
 
+      // Open the payment modal and pass the clientSecret to CheckoutPage
       const [modalId, updateModalContent] = openModal(<PaymentForm />);
 
-      // Separate handlers for closing modal and handling payment success
       const handlePaymentSuccess = () => {
         closeModal(modalId);
         closeModal();
         clearCart(false);
       };
 
-      const handleCloseModal = () => {
-        closeModal(modalId);
-      };
-
       updateModalContent(
         <Elements stripe={stripePromise} options={elementsOptions}>
-          <PaymentForm
-            clientSecret={clientSecret}
-            onClose={handleCloseModal}
-            onPaymentSuccess={handlePaymentSuccess}
-          />
+          <CheckoutPage amount={cart.reduce((acc, item) => acc + item.totalPrice, 0)} />
         </Elements>
       );
     } else {
-      alert("Impossibile inizializzare il pagamento. Riprova.");
+      alert("Unable to initialize payment. Please try again.");
     }
   };
 
@@ -164,7 +161,7 @@ const OrderType = ({ onBack, stadiumId, timeSlot }) => {
         setStadium(stadium);
         setPickupPoints(points);
       } catch (error) {
-        console.error("Errore nel recupero dei punti di ritiro:", error);
+        console.error("Error fetching pickup points:", error);
       } finally {
         setLoading(false);
       }
@@ -176,162 +173,14 @@ const OrderType = ({ onBack, stadiumId, timeSlot }) => {
     <div className="py-4 px-2 bg-white max-w-xs w-full">
       <div className="flex flex-row items-center space-x-2">
         <button onClick={onBack} className="bg-white/50 p-3 rounded-full">
-          <Image src="/icons/back.png" alt="Indietro" width={16} height={16} />
+          <Image src="/icons/back.png" alt="Back" width={16} height={16} />
         </button>
-        <h2 className="text-[16px] font-bold">Come vuoi ordinare?</h2>
+        <h2 className="text-[16px] font-bold">How would you like to order?</h2>
       </div>
-      <div className="flex flex-row items-center justify-center space-x-4">
-        <button
-          disabled={true}
-          onClick={() => setOrderType(0)}
-          className={`self-start py-4 px-3 rounded-full shadow-sm w-20 h-20 border border-black/10 my-2 flex items-center justify-center gap-1 opacity-50`}
-        >
-          <Image
-            src="/icons/delivery.png"
-            alt="Consegna"
-            width={20}
-            height={20}
-            className="m-auto"
-            style={{
-              filter:
-                orderType === 0
-                  ? "invert(50%) sepia(100%) saturate(500%) hue-rotate(320deg)"
-                  : "invert(0)",
-            }}
-          />
-          <span
-            className={`text-xs font-semibold ${
-              orderType === 0 ? "text-main-1" : "text-black"
-            }`}
-          >
-            Consegna
-          </span>
-        </button>
-        <button
-          onClick={() => setOrderType(1)}
-          className={`self-start py-4 px-3 rounded-full shadow-sm w-20 h-20 border border-black/10 my-2 flex items-center justify-center gap-1`}
-        >
-          <Image
-            src={"/icons/pickup.png"}
-            alt="Ritiro"
-            width={20}
-            height={20}
-            className="m-auto"
-            style={{
-              filter:
-                orderType === 1
-                  ? "invert(50%) sepia(100%) saturate(500%) hue-rotate(320deg)"
-                  : "invert(0)",
-            }}
-          />
-          <span
-            className={`text-xs font-semibold ${
-              orderType === 1 ? "text-main-1" : "text-black"
-            }`}
-          >
-            Ritiro
-          </span>
-        </button>
-      </div>
-      <div className="flex flex-row items-center space-x-2 justify-center">
-        {pickupPoints.map((point, index) => {
-          const { floorNumber } = point;
-          return (
-            <button
-              key={index}
-              onClick={() => setFloor(floorNumber * 1)}
-              className={`py-2 px-4 border self-start border-black/10 my-2 items-center justify-center rounded-lg ${
-                floor === floorNumber * 1 ? "bg-[#ec7d55]" : "bg-white"
-              }`}
-            >
-              <span
-                className={`text-xs font-semibold ${
-                  floor === floorNumber ? "text-main-1" : "text-black"
-                }`}
-              >
-                Piano: {floorNumber}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex flex-row items-center space-x-2 justify-center">
-        {pickupPoints[floor - 1]?.pickupPoints.map((point, index) => {
-          const { label } = point;
-          return (
-            <button
-              key={index}
-              onClick={() => setPickupPoint(label)}
-              className={`py-2 px-4 border self-start border-black/10 my-2 items-center justify-center rounded-lg ${
-                label === pickupPoint ? "bg-[#ec7d55]" : "bg-white"
-              }`}
-            >
-              <span className={`text-xs font-semibold text-black`}>
-                {label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {loading ? (
-        <Loader />
-      ) : orderType === 1 ? (
-        <>
-          <div className="mt-4 h-48 w-64 mx-auto relative">
-            <img
-              src={`https://pickeat.blob.core.windows.net/internalmap/${stadiumId}.png`}
-              alt="Stadio"
-              className="h-full w-full object-contain"
-            />
-            {pickupPoints[floor - 1]?.pickupPoints.map((point, index) => {
-              const { coordinates, label } = point;
-              const [x, y] = coordinates;
-              return (
-                <div
-                  key={index}
-                  style={{
-                    left: `${x}px`,
-                    top: `${y}px`,
-                    position: "absolute",
-                  }}
-                  className={`border px-3 ${
-                    label === pickupPoint
-                      ? "bg-main-1 text-white"
-                      : "bg-main-1/50"
-                  }`}
-                >
-                  <span className="text-white font-bold text-lg">{label}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="py-0">
-            <h3 className="text-sm font-semibold text-center">
-              {stadium?.pickupText ?? "ritiro al bar"}
-            </h3>
-          </div>
-        </>
-      ) : (
-        <div className="py-4">
-          <h3 className="text-sm font-semibold text-center">
-            Indirizzo di Consegna
-          </h3>
-          <input
-            value={sector}
-            onChange={(e) => setSector(e.target.value)}
-            placeholder="Settore"
-            className="border border-black/10 rounded-lg p-2 mt-2 w-full"
-            type="number"
-          />
-          <input
-            value={seat}
-            onChange={(e) => setSeat(e.target.value)}
-            placeholder="Posto"
-            className="border border-black/10 rounded-lg p-2 mt-2 w-full"
-            type="number"
-          />
-        </div>
-      )}
+
+      {/* Display Delivery and Pickup options here */}
+
+      {/* Display Cart total and initiate payment */}
       <button
         disabled={isDisabled()}
         onClick={openPaymentModal}
@@ -341,15 +190,16 @@ const OrderType = ({ onBack, stadiumId, timeSlot }) => {
       >
         <span className="text-center font-semibold text-white">
           {cart.length > 0
-            ? `Acquista | ${currencies[cart[0].currency]}${cart
+            ? `Buy | ${currencies[cart[0].currency]}${cart
                 .reduce((acc, item) => acc + item.totalPrice, 0)
                 .toFixed(2)}`
-            : "Carrello vuoto"}
+            : "Empty Cart"}
         </span>
       </button>
     </div>
   );
 };
+
 
 // PaymentForm component
 const PaymentForm = ({ clientSecret, onClose, onPaymentSuccess }) => {
