@@ -15,6 +15,9 @@ const socket_url =
 const userContext = createContext();
 export const useUser = () => useContext(userContext);
 
+
+
+
 const UserContext = ({ children }) => {
   const { openModal, confirmationModal } = useModal();
   const [user, setUser] = useState(null);
@@ -167,7 +170,57 @@ const UserContext = ({ children }) => {
     }
   };
 
+  const getGuestID = async () => {
+    // Implement logic to get a guest ID, for example:
+    // 1. Generate a guest ID if it doesn't exist in localStorage.
+    // 2. Return the existing guest ID if it exists.
+  
+    let guestID = localStorage.getItem('guestID');
+    if (!guestID) {
+      guestID = `guest-${Math.random().toString(36).substr(2, 9)}`;  // Generate a random guest ID
+      localStorage.setItem('guestID', guestID);
+    }
+  
+    return guestID;
+  };
+
   //  Cart
+
+  // Add abandoned order to MongoDB
+  const saveAbandonedOrder = async (order) => {
+    try {
+      await api.post("/auth/abandoned_order", order); // Send abandoned order to server
+    } catch (error) {
+      console.error("Error saving abandoned order", error);
+    }
+  };
+
+  // Move from abandoned order to completed order (MongoDB update)
+  const convertToOrder = async (order) => {
+    try {
+      await api.post("/auth/complete_order", order); // Send to complete order endpoint
+      await api.delete(`/auth/abandoned_order/${order._id}`); // Delete from abandoned orders
+    } catch (error) {
+      console.error("Error converting to order", error);
+    }
+  };
+
+  const completeOrder = async () => {
+    try {
+      const completedOrder = {
+        userID: user.userID,
+        cart: cart,
+        status: 'completed',
+      };
+      // Mark as completed in the MongoDB 'orders' collection
+      await convertToOrder(completedOrder); // Convert the abandoned order to a completed order
+      setCart([]); // Clear the cart after order completion
+    } catch (error) {
+      console.error("Error completing order", error);
+    }
+  };
+
+
   const saveCartToDB = async (item) => {
     return api.post(`/auth/cart`, { item });
   };
@@ -182,12 +235,18 @@ const UserContext = ({ children }) => {
 
   const addToCart = async (item) => {
     try {
+
+      const itemToSave = {
+        ...item,
+        status: 'uncompleted', // Mark as uncompleted order
+      };
+
       if (user?.userID) {
         await saveCartToDB(item);
       } else {
         localStorage.setItem(`cart`, JSON.stringify([...cart, item]));
       }
-      setCart([...cart, item]);
+      setCart([...cart, itemToSave]);
     } catch (error) {
       alert(error);
       console.error("Error adding to cart", error);
@@ -310,13 +369,24 @@ const UserContext = ({ children }) => {
   //orders
   const getOrders = async () => {
     try {
-      const userID = user?.userID || (await getGuestID());
+      const userID = user?.userID || null;
       const { data } = await api.post("/auth/orders", {
         userID,
       });
       setOrders(data);
     } catch (error) {
       console.error("Error getting orders", error);
+      return [];
+    }
+  };
+
+  const getAbandonedOrders = async () => {
+    try {
+      const userID = user?.userID || (await getGuestID());
+      const { data } = await api.get(`/auth/abandoned_orders/${userID}`);
+      return data;
+    } catch (error) {
+      console.error("Error getting abandoned orders", error);
       return [];
     }
   };
@@ -406,19 +476,18 @@ const UserContext = ({ children }) => {
     loginWithGoogle,
     logout,
     userLocation,
-    //cart
+    // Cart
     cart,
     addToCart,
-    deleteFromCart,
-    clearCart,
-    getCartItems,
-    updateCartItem,
-    //strip
-    getPaymentIntent,
-    setDefaultCard,
-    removeCard,
-    getSetupIntent,
-    getMyCoupons,
+    completeOrder,
+    // Orders
+    getOrders,
+    orders,
+    saveAbandonedOrder,
+    getAbandonedOrders,
+    socket,
+    orderPing,
+    cartPing,
 
     //orders
     getOrders,
@@ -432,6 +501,7 @@ const UserContext = ({ children }) => {
 
   useEffect(() => {
     verifyUser();
+    getAbandonedOrders(); 
   }, []);
 
   useEffect(() => {
