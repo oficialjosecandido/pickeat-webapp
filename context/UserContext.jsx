@@ -8,7 +8,7 @@ import { signInWithGoogle } from "@firebase";
 import io from "socket.io-client";
 
 const socket_url =
-  "https://pickeat-asedfnc8hsfbevdj.italynorth-01.azurewebsites.net/";
+  "https://pickeat-backend.azurewebsites.net/";
 
 // const socket_url = "http://192.168.68.107:8080/";
 
