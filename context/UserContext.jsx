@@ -480,6 +480,10 @@ const UserContext = ({ children }) => {
     cart,
     addToCart,
     completeOrder,
+    getMyCoupons,
+    getPaymentIntent,
+    getSetupIntent,
+    deleteFromCart,
     // Orders
     getOrders,
     orders,
