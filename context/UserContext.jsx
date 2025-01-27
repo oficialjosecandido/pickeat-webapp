@@ -7,16 +7,12 @@ import VerifyEmail from "@components/VerifyEmail";
 import { signInWithGoogle } from "@firebase";
 import io from "socket.io-client";
 
-const socket_url =
-  "https://pickeat-backend.azurewebsites.net/";
+const socket_url = "https://pickeat-backend.azurewebsites.net/";
 
 // const socket_url = "http://192.168.68.107:8080/";
 
 const userContext = createContext();
 export const useUser = () => useContext(userContext);
-
-
-
 
 const UserContext = ({ children }) => {
   const { openModal, confirmationModal } = useModal();
@@ -32,6 +28,9 @@ const UserContext = ({ children }) => {
 
   const [orderPing, setOrderPing] = useState(false);
   const [cartPing, setCartPing] = useState(false);
+
+  // Session expiration duration (24 hours)
+  const SESSION_DURATION = 24 * 60 * 60 * 1000; // in milliseconds
 
   //user
   const loginWithGoogle = async () => {
@@ -171,16 +170,11 @@ const UserContext = ({ children }) => {
   };
 
   const getGuestID = async () => {
-    // Implement logic to get a guest ID, for example:
-    // 1. Generate a guest ID if it doesn't exist in localStorage.
-    // 2. Return the existing guest ID if it exists.
-  
-    let guestID = localStorage.getItem('guestID');
+    let guestID = localStorage.getItem("guestID");
     if (!guestID) {
-      guestID = `guest-${Math.random().toString(36).substr(2, 9)}`;  // Generate a random guest ID
-      localStorage.setItem('guestID', guestID);
+      guestID = `guest-${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem("guestID", guestID);
     }
-  
     return guestID;
   };
 
@@ -505,7 +499,7 @@ const UserContext = ({ children }) => {
 
   useEffect(() => {
     verifyUser();
-    getAbandonedOrders(); 
+    getAbandonedOrders();
   }, []);
 
   useEffect(() => {
@@ -522,9 +516,7 @@ const UserContext = ({ children }) => {
 
     const newSocket = io(socket_url);
     newSocket.on("connect", () => {
-      newSocket.emit("assign_user", {
-        userID: user.userID,
-      });
+      newSocket.emit("assign_user", { userID: user.userID });
     });
 
     setSocket(newSocket);
