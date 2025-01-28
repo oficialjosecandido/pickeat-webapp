@@ -33,7 +33,45 @@ const UserContext = ({ children }) => {
   const SESSION_DURATION = 24 * 60 * 60 * 1000; // in milliseconds
 
   //user
+
   const loginWithGoogle = async () => {
+    try {
+      let result;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          result = await signInWithGoogle();
+          break; // Exit loop on success
+        } catch (error) {
+          if (attempt === 1 || error.code !== "auth/popup-closed-by-user") {
+            throw error; // Throw if it's the second attempt or another issue
+          }
+        }
+      }
+      const { user: googleUser } = result;
+  
+      const { email, displayName, photoURL } = googleUser;
+      const {
+        data: { token, user },
+      } = await api.post("/auth/oAuth/google", {
+        email,
+        firstName: displayName.split(" ")[0],
+        lastName: displayName.split(" ")[1],
+        profileImg: photoURL,
+      });
+  
+      setUser({
+        ...user,
+      });
+      api.defaults.headers["Authorization"] = `Bearer ${token}`;
+      localStorage.setItem("token", token);
+    } catch (error) {
+      console.error("Error logging in with Google", error);
+      throw new Error("Failed to log in with Google.");
+    }
+  };
+
+  
+  /* const loginWithGoogle = async () => {
     try {
       const result = await signInWithGoogle();
       const { user: googleUser } = result;
@@ -64,7 +102,7 @@ const UserContext = ({ children }) => {
         throw new Error(message);
       }
     }
-  };
+  }; */
 
   const confirmEmail = async (email) => {
     const [modalId, updateModalContent] = openModal(<VerifyEmail />);
