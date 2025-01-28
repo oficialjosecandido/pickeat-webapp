@@ -34,7 +34,8 @@ const UserContext = ({ children }) => {
 
   //user
 
-  const loginWithGoogle = async () => {
+  /* const loginWithGoogle = async () => {
+    console.log(111111)
     try {
       let result;
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -68,8 +69,39 @@ const UserContext = ({ children }) => {
       console.error("Error logging in with Google", error);
       throw new Error("Failed to log in with Google.");
     }
-  };
+  }; */
 
+  const loginWithGoogle = async () => {
+    console.log(111111)
+    try {
+      const result = await signInWithGoogle();
+      const { user: googleUser } = result;
+  
+      const { email, displayName, photoURL } = googleUser;
+      const {
+        data: { token, user },
+      } = await api.post("/auth/oAuth/google", {
+        email,
+        firstName: displayName.split(" ")[0],
+        lastName: displayName.split(" ")[1],
+        profileImg: photoURL,
+      });
+  
+      setUser({
+        ...user,
+      });
+      localStorage.setItem("token", token);
+      api.defaults.headers["Authorization"] = `Bearer ${token}`;
+  
+      // Validate token exists in localStorage
+      if (!localStorage.getItem("token")) {
+        throw new Error("Failed to store token locally.");
+      }
+    } catch (error) {
+      console.error("Error logging in with Google", error);
+      throw new Error("Failed to log in with Google.");
+    }
+  };
   
   /* const loginWithGoogle = async () => {
     try {
