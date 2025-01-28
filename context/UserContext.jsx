@@ -7,8 +7,7 @@ import VerifyEmail from "@components/VerifyEmail";
 import { signInWithGoogle } from "@firebase";
 import io from "socket.io-client";
 
-const socket_url =
-  "https://pickeat-asedfnc8hsfbevdj.italynorth-01.azurewebsites.net/";
+const socket_url = "https://pickeat-backend.azurewebsites.net/";
 
 // const socket_url = "http://192.168.68.107:8080/";
 
@@ -30,8 +29,49 @@ const UserContext = ({ children }) => {
   const [orderPing, setOrderPing] = useState(false);
   const [cartPing, setCartPing] = useState(false);
 
+  // Session expiration duration (24 hours)
+  const SESSION_DURATION = 24 * 60 * 60 * 1000; // in milliseconds
+
   //user
+
   const loginWithGoogle = async () => {
+    try {
+      let result;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          result = await signInWithGoogle();
+          break; // Exit loop on success
+        } catch (error) {
+          if (attempt === 1 || error.code !== "auth/popup-closed-by-user") {
+            throw error; // Throw if it's the second attempt or another issue
+          }
+        }
+      }
+      const { user: googleUser } = result;
+  
+      const { email, displayName, photoURL } = googleUser;
+      const {
+        data: { token, user },
+      } = await api.post("/auth/oAuth/google", {
+        email,
+        firstName: displayName.split(" ")[0],
+        lastName: displayName.split(" ")[1],
+        profileImg: photoURL,
+      });
+  
+      setUser({
+        ...user,
+      });
+      api.defaults.headers["Authorization"] = `Bearer ${token}`;
+      localStorage.setItem("token", token);
+    } catch (error) {
+      console.error("Error logging in with Google", error);
+      throw new Error("Failed to log in with Google.");
+    }
+  };
+
+  
+  /* const loginWithGoogle = async () => {
     try {
       const result = await signInWithGoogle();
       const { user: googleUser } = result;
@@ -62,7 +102,7 @@ const UserContext = ({ children }) => {
         throw new Error(message);
       }
     }
-  };
+  }; */
 
   const confirmEmail = async (email) => {
     const [modalId, updateModalContent] = openModal(<VerifyEmail />);
@@ -167,7 +207,52 @@ const UserContext = ({ children }) => {
     }
   };
 
+  const getGuestID = async () => {
+    let guestID = localStorage.getItem("guestID");
+    if (!guestID) {
+      guestID = `guest-${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem("guestID", guestID);
+    }
+    return guestID;
+  };
+
   //  Cart
+
+  // Add abandoned order to MongoDB
+  const saveAbandonedOrder = async (order) => {
+    try {
+      await api.post("/auth/abandoned_order", order); // Send abandoned order to server
+    } catch (error) {
+      console.error("Error saving abandoned order", error);
+    }
+  };
+
+  // Move from abandoned order to completed order (MongoDB update)
+  const convertToOrder = async (order) => {
+    try {
+      await api.post("/auth/complete_order", order); // Send to complete order endpoint
+      await api.delete(`/auth/abandoned_order/${order._id}`); // Delete from abandoned orders
+    } catch (error) {
+      console.error("Error converting to order", error);
+    }
+  };
+
+  const completeOrder = async () => {
+    try {
+      const completedOrder = {
+        userID: user.userID,
+        cart: cart,
+        status: 'completed',
+      };
+      // Mark as completed in the MongoDB 'orders' collection
+      await convertToOrder(completedOrder); // Convert the abandoned order to a completed order
+      setCart([]); // Clear the cart after order completion
+    } catch (error) {
+      console.error("Error completing order", error);
+    }
+  };
+
+
   const saveCartToDB = async (item) => {
     return api.post(`/auth/cart`, { item });
   };
@@ -182,12 +267,18 @@ const UserContext = ({ children }) => {
 
   const addToCart = async (item) => {
     try {
+
+      const itemToSave = {
+        ...item,
+        status: 'uncompleted', // Mark as uncompleted order
+      };
+
       if (user?.userID) {
         await saveCartToDB(item);
       } else {
         localStorage.setItem(`cart`, JSON.stringify([...cart, item]));
       }
-      setCart([...cart, item]);
+      setCart([...cart, itemToSave]);
     } catch (error) {
       alert(error);
       console.error("Error adding to cart", error);
@@ -310,13 +401,24 @@ const UserContext = ({ children }) => {
   //orders
   const getOrders = async () => {
     try {
-      const userID = user?.userID || (await getGuestID());
+      const userID = user?.userID || null;
       const { data } = await api.post("/auth/orders", {
         userID,
       });
       setOrders(data);
     } catch (error) {
       console.error("Error getting orders", error);
+      return [];
+    }
+  };
+
+  const getAbandonedOrders = async () => {
+    try {
+      const userID = user?.userID || (await getGuestID());
+      const { data } = await api.get(`/auth/abandoned_orders/${userID}`);
+      return data;
+    } catch (error) {
+      console.error("Error getting abandoned orders", error);
       return [];
     }
   };
@@ -406,19 +508,22 @@ const UserContext = ({ children }) => {
     loginWithGoogle,
     logout,
     userLocation,
-    //cart
+    // Cart
     cart,
     addToCart,
-    deleteFromCart,
-    clearCart,
-    getCartItems,
-    updateCartItem,
-    //strip
-    getPaymentIntent,
-    setDefaultCard,
-    removeCard,
-    getSetupIntent,
+    completeOrder,
     getMyCoupons,
+    getPaymentIntent,
+    getSetupIntent,
+    deleteFromCart,
+    // Orders
+    getOrders,
+    orders,
+    saveAbandonedOrder,
+    getAbandonedOrders,
+    socket,
+    orderPing,
+    cartPing,
 
     //orders
     getOrders,
@@ -432,6 +537,7 @@ const UserContext = ({ children }) => {
 
   useEffect(() => {
     verifyUser();
+    getAbandonedOrders();
   }, []);
 
   useEffect(() => {
@@ -448,9 +554,7 @@ const UserContext = ({ children }) => {
 
     const newSocket = io(socket_url);
     newSocket.on("connect", () => {
-      newSocket.emit("assign_user", {
-        userID: user.userID,
-      });
+      newSocket.emit("assign_user", { userID: user.userID });
     });
 
     setSocket(newSocket);

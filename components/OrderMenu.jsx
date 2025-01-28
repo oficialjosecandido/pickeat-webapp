@@ -12,33 +12,50 @@ const OrderMenu = ({ modalId, item }) => {
   if (!modalContext || !dataContext || !userContext) return null;
 
   const { closeModal, displayImage } = modalContext;
-  const { addToCart } = userContext;
   const { currencies } = dataContext;
+  const { addToCart, saveAbandonedOrder } = userContext;
+
 
   const [loading, setLoading] = useState(false);
   const [totalPrice, setTotalPrice] = useState(item.price * 1);
   const [notes, setNotes] = useState("");
 
   const finish = async () => {
+    if (!saveAbandonedOrder) {
+      console.error("saveAbandonedOrder is not defined");
+      return;
+    }
     try {
       setLoading(true);
+  
+      await saveAbandonedOrder({
+        ...item,
+        amount: orderNumber,
+        extras: additions
+          .filter((index) => item.extras[index] !== undefined)
+          .map((index) => item.extras[index]),
+        totalPrice: parseFloat(totalPrice),
+        notes,
+      });
+  
       await addToCart({
         ...item,
         amount: orderNumber,
         extras: additions
-          .filter((index) => item.extras[index] !== undefined) // Filter out invalid indices
-          .map((index) => item.extras[index]), // Map only valid extras
+          .filter((index) => item.extras[index] !== undefined)
+          .map((index) => item.extras[index]),
         totalPrice: parseFloat(totalPrice),
         notes,
       });
     } catch (error) {
-      alert("Errore nell'aggiunta al carrello. Riprova.", error);
+      alert("Errore nell'aggiunta al carrello. Riprova.");
       console.error("Errore nell'aggiunta al carrello da OrderMenu:", error);
     } finally {
       setLoading(false);
       closeModal(modalId);
     }
   };
+  
 
   const [orderNumber, setOrderNumber] = useState(1);
   const [additions, setAdditions] = useState(item.multiOptions ? [] : [0]);
