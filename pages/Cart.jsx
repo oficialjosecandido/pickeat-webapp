@@ -62,7 +62,7 @@ const Cart = () => {
         <h2 className="text-xl uppercase">I miei articoli ({cart.length})</h2>
         <button
           className="px-2 py-1 border border-main-1 shadow-sm rounded-lg bg-white"
-          onClick={clearCart}
+          onClick={() => clearCart()} 
         >
           <span className="text-sm text-main-1">Cancella tutto</span>
         </button>
