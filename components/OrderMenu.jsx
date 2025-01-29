@@ -13,7 +13,7 @@ const OrderMenu = ({ modalId, item }) => {
 
   const { closeModal, displayImage } = modalContext;
   const { currencies } = dataContext;
-  const { addToCart, saveAbandonedOrder } = userContext;
+  const { addToCart } = userContext;
 
 
   const [loading, setLoading] = useState(false);
@@ -21,22 +21,11 @@ const OrderMenu = ({ modalId, item }) => {
   const [notes, setNotes] = useState("");
 
   const finish = async () => {
-    if (!saveAbandonedOrder) {
-      console.error("saveAbandonedOrder is not defined");
-      return;
-    }
+    
     try {
       setLoading(true);
   
-      await saveAbandonedOrder({
-        ...item,
-        amount: orderNumber,
-        extras: additions
-          .filter((index) => item.extras[index] !== undefined)
-          .map((index) => item.extras[index]),
-        totalPrice: parseFloat(totalPrice),
-        notes,
-      });
+      
   
       await addToCart({
         ...item,
