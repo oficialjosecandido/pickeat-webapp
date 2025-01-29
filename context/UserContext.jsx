@@ -99,7 +99,7 @@ const UserContext = ({ children }) => {
       }
     } catch (error) {
       console.error("Error logging in with Google", error);
-      throw new Error("Failed to log in with Google.");
+      throw new Error("Failed to log in with Google. Please try a second time.");
     }
   };
   
