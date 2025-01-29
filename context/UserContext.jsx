@@ -72,36 +72,53 @@ const UserContext = ({ children }) => {
   }; */
 
   const loginWithGoogle = async () => {
-    console.log(7777)
-    try {
-      const result = await signInWithGoogle();
-      const { user: googleUser } = result;
+    console.log("Attempting Google login...");
+    
+    let attempts = 0;
+    const maxAttempts = 2;
   
-      const { email, displayName, photoURL } = googleUser;
-      const {
-        data: { token, user },
-      } = await api.post("/auth/oAuth/google", {
-        email,
-        firstName: displayName.split(" ")[0],
-        lastName: displayName.split(" ")[1],
-        profileImg: photoURL,
-      });
+    while (attempts < maxAttempts) {
+      try {
+        const result = await signInWithGoogle();
+        const { user: googleUser } = result;
+    
+        const { email, displayName, photoURL } = googleUser;
+        const {
+          data: { token, user },
+        } = await api.post("/auth/oAuth/google", {
+          email,
+          firstName: displayName.split(" ")[0],
+          lastName: displayName.split(" ")[1],
+          profileImg: photoURL,
+        });
+    
+        setUser({ ...user });
+        localStorage.setItem("token", token);
+        api.defaults.headers["Authorization"] = `Bearer ${token}`;
   
-      setUser({
-        ...user,
-      });
-      localStorage.setItem("token", token);
-      api.defaults.headers["Authorization"] = `Bearer ${token}`;
+        console.log("Google login successful");
+        
+        // Validate token exists in localStorage
+        if (!localStorage.getItem("token")) {
+          throw new Error("Failed to store token locally.");
+        }
   
-      // Validate token exists in localStorage
-      if (!localStorage.getItem("token")) {
-        throw new Error("Failed to store token locally.");
+        return; // Exit function on success
+  
+      } catch (error) {
+        attempts++;
+        console.error(`Google login attempt ${attempts} failed`, error);
+  
+        if (attempts >= maxAttempts) {
+          throw new Error("Failed to log in with Google after multiple attempts.");
+        }
+  
+        // Add a short delay before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-    } catch (error) {
-      console.error("Error logging in with Google", error);
-      throw new Error("Failed to log in with Google. Please try a second time.");
     }
   };
+  
   
   /* const loginWithGoogle = async () => {
     try {
@@ -288,8 +305,15 @@ const UserContext = ({ children }) => {
   };
 
   const clearCartFromDB = async () => {
-    return api.delete(`/auth/cart/clear`);
+    console.log("Clearing cart from DB...");
+    try {
+      await api.delete(`/auth/cart/clear`);
+      console.log("Cart cleared from DB.");
+    } catch (error) {
+      console.error("Error clearing cart from DB", error);
+    }
   };
+  
 
   const addToCart = async (item) => {
     try {
@@ -302,8 +326,11 @@ const UserContext = ({ children }) => {
       if (user?.userID) {
         await saveCartToDB(item);
       } else {
+        console.log('settting item...')
+        // TODO: not working this
         localStorage.setItem(`cart`, JSON.stringify([...cart, item]));
       }
+      localStorage.setItem(`cart`, JSON.stringify([...cart, item]));
       setCart([...cart, itemToSave]);
     } catch (error) {
       alert(error);
@@ -343,41 +370,57 @@ const UserContext = ({ children }) => {
   const clearCart = async (confirm = true) => {
     try {
       if (cart.length === 0) {
+        console.log("Cart is already empty.");
         return;
       }
+  
       if (confirm) {
         await confirmationModal(
           "Clear Cart",
           "Are you sure you want to clear the cart?"
         );
       }
+  
       if (user?.userID) {
-        await clearCartFromDB();
+        await clearCartFromDB();  // Make sure this API call is working correctly
       }
+  
+      // Clear the localStorage
       localStorage.removeItem(`cart`);
+  
+      // Reset cart state
       setCart([]);
+  
+      console.log("Cart cleared successfully.");
     } catch (error) {
       console.error("Error clearing cart", error);
     }
   };
+  
 
   const getCartItems = async () => {
     try {
+      let cart = [];
+  
+      // First, check if there's a cart in localStorage
       const cartItems = localStorage.getItem(`cart`);
-      const cart = [];
       if (cartItems) {
         cart.push(...JSON.parse(cartItems));
       }
+  
+      // If the user is logged in, fetch the cart from the server (DB)
       if (user?.userID) {
         const { data } = await api.get(`/auth/cart`);
         cart.push(...data);
       }
-
+  
+      // Update the cart state with all items
       setCart(cart);
     } catch (error) {
       console.error("Error getting cart items", error);
     }
   };
+  
 
   const updateCartItem = async (id, amount) => {
     try {
@@ -542,6 +585,7 @@ const UserContext = ({ children }) => {
     getPaymentIntent,
     getSetupIntent,
     deleteFromCart,
+    clearCart,
     // Orders
     getOrders,
     orders,
@@ -565,8 +609,11 @@ const UserContext = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    // This will ensure cart is loaded from localStorage when the page reloads.
     getCartItems();
     if (!user?.userID) return;
+
+    // If the user is logged in, load their orders.
     getOrders();
 
     const storedLocation = localStorage.getItem("userLocation");
@@ -578,11 +625,11 @@ const UserContext = ({ children }) => {
 
     const newSocket = io(socket_url);
     newSocket.on("connect", () => {
-      newSocket.emit("assign_user", { userID: user.userID });
+      newSocket.emit("assign_user", { userID: user?.userID });
     });
 
     setSocket(newSocket);
-  }, [user]);
+}, [user]);
 
   useEffect(() => {
     if (!socket) return;
