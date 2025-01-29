@@ -72,7 +72,7 @@ const UserContext = ({ children }) => {
   }; */
 
   const loginWithGoogle = async () => {
-    console.log(111111)
+    console.log(7777)
     try {
       const result = await signInWithGoogle();
       const { user: googleUser } = result;
@@ -251,19 +251,13 @@ const UserContext = ({ children }) => {
   //  Cart
 
   // Add abandoned order to MongoDB
-  const saveAbandonedOrder = async (order) => {
-    try {
-      await api.post("/auth/abandoned_order", order); // Send abandoned order to server
-    } catch (error) {
-      console.error("Error saving abandoned order", error);
-    }
-  };
+  
 
   // Move from abandoned order to completed order (MongoDB update)
   const convertToOrder = async (order) => {
     try {
       await api.post("/auth/complete_order", order); // Send to complete order endpoint
-      await api.delete(`/auth/abandoned_order/${order._id}`); // Delete from abandoned orders
+      // await api.delete(`/auth/abandoned_order/${order._id}`); // Delete from abandoned orders
     } catch (error) {
       console.error("Error converting to order", error);
     }
@@ -444,16 +438,16 @@ const UserContext = ({ children }) => {
     }
   };
 
-  const getAbandonedOrders = async () => {
+  /* const getAbandonedOrders = async () => {
     try {
       const userID = user?.userID || (await getGuestID());
-      const { data } = await api.get(`/auth/abandoned_orders/${userID}`);
-      return data;
+      // const { data } = await api.get(`/auth/abandoned_orders/${userID}`);
+      // return data;
     } catch (error) {
       console.error("Error getting abandoned orders", error);
       return [];
     }
-  };
+  }; */
 
   const getOrdersHistory = async () => {
     try {
@@ -551,8 +545,6 @@ const UserContext = ({ children }) => {
     // Orders
     getOrders,
     orders,
-    saveAbandonedOrder,
-    getAbandonedOrders,
     socket,
     orderPing,
     cartPing,
@@ -569,7 +561,7 @@ const UserContext = ({ children }) => {
 
   useEffect(() => {
     verifyUser();
-    getAbandonedOrders();
+    // getAbandonedOrders();
   }, []);
 
   useEffect(() => {
