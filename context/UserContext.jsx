@@ -4,10 +4,13 @@ import Splash from "@pages/Splash";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useModal } from "@context/ModalContext";
 import VerifyEmail from "@components/VerifyEmail";
-import { signInWithGoogle } from "@firebase";
-import io from "socket.io-client";
+import { auth, googleProvider } from "@firebase";
 
-const socket_url = "https://pickeat-production.azurewebsites.net";
+import io from "socket.io-client";
+import { signInWithRedirect, getRedirectResult } from "firebase/auth";
+const socket_url = "https://pickeat-backend.azurewebsites.net/";
+
+
 
 // const socket_url = "http://192.168.68.107:8080/";
 
@@ -33,137 +36,61 @@ const UserContext = ({ children }) => {
   const SESSION_DURATION = 24 * 60 * 60 * 1000; // in milliseconds
 
   //user
-
-  /* const loginWithGoogle = async () => {
-    console.log(111111)
+  const handleGoogleRedirect = async () => {
+    console.log("Checking for Google redirect result...");
     try {
-      let result;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          result = await signInWithGoogle();
-          break; // Exit loop on success
-        } catch (error) {
-          if (attempt === 1 || error.code !== "auth/popup-closed-by-user") {
-            throw error; // Throw if it's the second attempt or another issue
-          }
-        }
+      const result = await getRedirectResult(auth); // Ensure getRedirectResult is imported correctly
+      if (!result) {
+        console.log("No redirect result found.");
+        return;
       }
-      const { user: googleUser } = result;
+  
+      const googleUser = result.user;
+      if (!googleUser) throw new Error("No Google user found.");
+  
+      console.log("Google user:", googleUser);
   
       const { email, displayName, photoURL } = googleUser;
-      const {
-        data: { token, user },
-      } = await api.post("/auth/oAuth/google", {
+  
+      const { data } = await api.post("/auth/oAuth/google", {
         email,
-        firstName: displayName.split(" ")[0],
-        lastName: displayName.split(" ")[1],
+        firstName: displayName?.split(" ")[0] || "",
+        lastName: displayName?.split(" ")[1] || "",
         profileImg: photoURL,
       });
   
-      setUser({
-        ...user,
-      });
-      api.defaults.headers["Authorization"] = `Bearer ${token}`;
-      localStorage.setItem("token", token);
+      setUser(data.user);
+      localStorage.setItem("token", data.token);
+      api.defaults.headers["Authorization"] = `Bearer ${data.token}`;
+  
+      console.log("User successfully logged in:", data.user);
     } catch (error) {
-      console.error("Error logging in with Google", error);
-      throw new Error("Failed to log in with Google.");
+      console.error("Error handling Google redirect:", error);
     }
-  }; */
-
+  };
+  
+  
   const loginWithGoogle = async () => {
-    console.log("Attempting Google login...");
-    
-    let attempts = 0;
-    const maxAttempts = 2;
-  
-    while (attempts < maxAttempts) {
-      try {
-        const result = await signInWithGoogle();
-        const { user: googleUser } = result;
-    
-        const { email, displayName, photoURL } = googleUser;
-        const {
-          data: { token, user },
-        } = await api.post("/auth/oAuth/google", {
-          email,
-          firstName: displayName.split(" ")[0],
-          lastName: displayName.split(" ")[1],
-          profileImg: photoURL,
-        });
-    
-        setUser({ ...user });
-        localStorage.setItem("token", token);
-        api.defaults.headers["Authorization"] = `Bearer ${token}`;
-  
-        console.log("Google login successful");
-        
-        // Validate token exists in localStorage
-        if (!localStorage.getItem("token")) {
-          throw new Error("Failed to store token locally.");
-        }
-  
-        return; // Exit function on success
-  
-      } catch (error) {
-        attempts++;
-        console.error(`Google login attempt ${attempts} failed`, error);
-  
-        if (attempts >= maxAttempts) {
-          throw new Error("Failed to log in with Google after multiple attempts.");
-        }
-  
-        // Add a short delay before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-  };
-  
-  
-  /* const loginWithGoogle = async () => {
+    console.log("Initiating Google login redirect...");
     try {
-      const result = await signInWithGoogle();
-      const { user: googleUser } = result;
-
-      const { email, displayName, photoURL } = googleUser;
-      const {
-        data: { token, user },
-      } = await api.post("/auth/oAuth/google", {
-        email,
-        firstName: displayName.split(" ")[0],
-        lastName: displayName.split(" ")[1],
-        profileImg: photoURL,
-      });
-      setUser({
-        ...user,
-      });
-      localStorage.setItem("token", token);
-      api.defaults.headers["Authorization"] = `Bearer ${token}`;
+      await signInWithRedirect(auth, googleProvider); // Ensure signInWithRedirect is imported correctly
     } catch (error) {
-      if (error.code === "auth/popup-closed-by-user") {
-        console.warn("Google login canceled by the user.");
-      } else {
-        console.error("Error logging in with Google", error);
-        const message =
-          error.response?.data?.message ||
-          error.code ||
-          "Internal server error.";
-        throw new Error(message);
-      }
+      console.error("Error initiating Google login:", error);
     }
-  }; */
-
-  const confirmEmail = async (email) => {
-    const [modalId, updateModalContent] = openModal(<VerifyEmail />);
-    updateModalContent(
-      <VerifyEmail
-        email={email}
-        verifyEmail={verifyEmail}
-        resentVerificationEmail={resentVerificationEmail}
-        modalId={modalId}
-      />
-    );
   };
+  
+  
+  useEffect(() => {
+    handleGoogleRedirect();
+  }, []);
+  
+  
+  
+  // Use useEffect to handle the redirect result when the component mounts
+  useEffect(() => {
+    handleGoogleRedirect(); // Check for redirect result on component mount
+    verifyUser();
+  }, []);
 
   const login = async (email, password) => {
     try {
@@ -229,15 +156,20 @@ const UserContext = ({ children }) => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
+  
       const { data } = await api.get("/auth/verify", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+  
       api.defaults.headers["Authorization"] = `Bearer ${token}`;
       setUser(data);
     } catch (error) {
-      console.error("Error verifying user", error);
+      console.error("Error verifying user:", error);
+      if (error.response?.status === 404) {
+        console.warn("/auth/verify endpoint not found. Skipping verification.");
+      }
     } finally {
       setLoading(false);
     }
@@ -603,10 +535,7 @@ const UserContext = ({ children }) => {
     cartPing,
   };
 
-  useEffect(() => {
-    verifyUser();
-    // getAbandonedOrders();
-  }, []);
+  
 
   useEffect(() => {
     // This will ensure cart is loaded from localStorage when the page reloads.
