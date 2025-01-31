@@ -6,15 +6,6 @@ import moment from "moment";
 import { useData } from "../context/DataContext";
 import OrderCompletionScan from "@components/OrderCompletionScan";
 
-const EmptyOrders = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-full bg-white">
-      <p className="font-semibold">Non sono stati trovati ordini attuali</p>
-      <button class="bg-white p-2 rounded-full shadow border hover:opacity-80" style={{ padding: "10px", margin: "10px" }}>Aggiornamento</button>
-    </div>
-  );
-};
-
 const Orders = () => {
   const modalContext = useModal();
   const userContext = useUser();
@@ -49,44 +40,50 @@ const Orders = () => {
     };
   }, [socket]);
 
-  if (orders.length === 0) {
-    console.log(1)
-    return <EmptyOrders />;
-  }
-
   return (
-    <div className="flex-1 overflow-auto">
-      {orders.map((order, index) => (
-        <div key={index} className="rounded-lg border p-2 bg-gray-100 mt-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold">{`Ordine: ${order.orderID}`}</p>
-            {order.status === "ready" ? (
-              <button
-                onClick={() => handleScanBarcode(order.orderID, order._id)}
-              >
-                <img
-                  src="/icons/barcode.png"
-                  alt="Scansiona Codice a Barre"
-                  className="h-5 w-5"
-                />
-              </button>
-            ) : (
-              <div className="flex items-center space-x-1">
-                <img src="/icons/timer.png" alt="Timer" className="h-5 w-5" />
-                <p className="text-xs font-semibold">
-                  {moment(order.timeSlot, "HH:mm").fromNow()}
-                </p>
-              </div>
-            )}
-          </div>
-          {order.items.map((item, index) => {
-            return (
+    <div className="flex flex-col flex-1 overflow-auto">
+      {/* Refresh Button (Always Visible) */}
+      <div className="flex justify-center mt-2">
+        <button
+          className="bg-white p-2 rounded-full shadow border hover:opacity-80"
+          onClick={() => window.location.reload()}
+        >
+          Aggiornamento
+        </button>
+      </div>
+
+      {/* Orders List or Empty State */}
+      {orders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-full bg-white">
+          <p className="font-semibold">Non sono stati trovati ordini attuali</p>
+        </div>
+      ) : (
+        orders.map((order, index) => (
+          <div key={index} className="rounded-lg border p-2 bg-gray-100 mt-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold">{`Ordine: ${order.orderID}`}</p>
+              {order.status === "ready" ? (
+                <button onClick={() => handleScanBarcode(order.orderID, order._id)}>
+                  <img
+                    src="/icons/barcode.png"
+                    alt="Scansiona Codice a Barre"
+                    className="h-5 w-5"
+                  />
+                </button>
+              ) : (
+                <div className="flex items-center space-x-1">
+                  <img src="/icons/timer.png" alt="Timer" className="h-5 w-5" />
+                  <p className="text-xs font-semibold">
+                    {moment(order.timeSlot, "HH:mm").fromNow()}
+                  </p>
+                </div>
+              )}
+            </div>
+            {order.items.map((item, index) => (
               <div
                 key={index}
                 className={`flex space-x-3 mt-4 pb-4 ${
-                  index === order.items.length - 1
-                    ? ""
-                    : "border-b border-black/10"
+                  index === order.items.length - 1 ? "" : "border-b border-black/10"
                 }`}
               >
                 <div className="border rounded-lg border-black/10 flex items-center justify-center px-2 py-4 bg-white">
@@ -99,9 +96,7 @@ const Orders = () => {
                 <div className="flex-1">
                   <p className="font-semibold truncate">{item.title}</p>
                   <p className="my-1 text-base font-bold text-main-1">
-                    {`X ${item.quantity} ${currencies[item.currency]} ${
-                      item.price * item.quantity
-                    }`}
+                    {`${item.quantity}x ${currencies[item.currency]} ${item.price * item.quantity}`}
                   </p>
                   <div className="flex flex-row">
                     <div className="flex-1">
@@ -117,10 +112,10 @@ const Orders = () => {
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      ))}
+            ))}
+          </div>
+        ))
+      )}
     </div>
   );
 };
