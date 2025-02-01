@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_AUTH_DOMAIN,
@@ -11,8 +12,30 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_MEASUREMENT_ID,
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
 
-export { app, auth, googleProvider };
+// Lazy load Firebase Auth and Google Provider
+let auth;
+let googleProvider;
+
+const initializeFirebaseAuth = () => {
+  if (!auth) {
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+  }
+};
+
+// Sign in with Google
+const signInWithGoogle = async () => {
+  initializeFirebaseAuth();
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result;
+  } catch (error) {
+    console.error("Error signing in with Google:", error);
+    throw error; // Rethrow to handle it in the caller function if needed
+  }
+};
+
+export { app, signInWithGoogle };

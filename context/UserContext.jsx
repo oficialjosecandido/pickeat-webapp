@@ -4,11 +4,11 @@ import Splash from "@pages/Splash";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useModal } from "@context/ModalContext";
 import VerifyEmail from "@components/VerifyEmail";
-import { auth, googleProvider } from "@firebase";
-
+import { signInWithGoogle } from "@firebase";
 import io from "socket.io-client";
-import { signInWithRedirect, getRedirectResult } from "firebase/auth";
-const socket_url = "https://pickeat-backend.azurewebsites.net/";
+
+const socket_url =
+  "https://pickeat-asedfnc8hsfbevdj.italynorth-01.azurewebsites.net/";
 
 
 
@@ -32,65 +32,51 @@ const UserContext = ({ children }) => {
   const [orderPing, setOrderPing] = useState(false);
   const [cartPing, setCartPing] = useState(false);
 
-  // Session expiration duration (24 hours)
-  const SESSION_DURATION = 24 * 60 * 60 * 1000; // in milliseconds
-
   //user
-  const handleGoogleRedirect = async () => {
-    console.log("Checking for Google redirect result...");
+  const loginWithGoogle = async () => {
     try {
-      const result = await getRedirectResult(auth); // Ensure getRedirectResult is imported correctly
-      if (!result) {
-        console.log("No redirect result found.");
-        return;
-      }
-  
-      const googleUser = result.user;
-      if (!googleUser) throw new Error("No Google user found.");
-  
-      console.log("Google user:", googleUser);
-  
+      const result = await signInWithGoogle();
+      const { user: googleUser } = result;
+
       const { email, displayName, photoURL } = googleUser;
-  
-      const { data } = await api.post("/auth/oAuth/google", {
+      const {
+        data: { token, user },
+      } = await api.post("/auth/oAuth/google", {
         email,
-        firstName: displayName?.split(" ")[0] || "",
-        lastName: displayName?.split(" ")[1] || "",
+        firstName: displayName.split(" ")[0],
+        lastName: displayName.split(" ")[1],
         profileImg: photoURL,
       });
-  
-      setUser(data.user);
-      localStorage.setItem("token", data.token);
-      api.defaults.headers["Authorization"] = `Bearer ${data.token}`;
-  
-      console.log("User successfully logged in:", data.user);
+      setUser({
+        ...user,
+      });
+      localStorage.setItem("token", token);
+      api.defaults.headers["Authorization"] = `Bearer ${token}`;
     } catch (error) {
-      console.error("Error handling Google redirect:", error);
+      if (error.code === "auth/popup-closed-by-user") {
+        console.warn("Google login canceled by the user.");
+      } else {
+        console.error("Error logging in with Google", error);
+        const message =
+          error.response?.data?.message ||
+          error.code ||
+          "Internal server error.";
+        throw new Error(message);
+      }
     }
   };
-  
-  
-  const loginWithGoogle = async () => {
-    console.log("Initiating Google login redirect...");
-    try {
-      await signInWithRedirect(auth, googleProvider); // Ensure signInWithRedirect is imported correctly
-    } catch (error) {
-      console.error("Error initiating Google login:", error);
-    }
+
+  const confirmEmail = async (email) => {
+    const [modalId, updateModalContent] = openModal(<VerifyEmail />);
+    updateModalContent(
+      <VerifyEmail
+        email={email}
+        verifyEmail={verifyEmail}
+        resentVerificationEmail={resentVerificationEmail}
+        modalId={modalId}
+      />
+    );
   };
-  
-  
-  useEffect(() => {
-    handleGoogleRedirect();
-  }, []);
-  
-  
-  
-  // Use useEffect to handle the redirect result when the component mounts
-  useEffect(() => {
-    handleGoogleRedirect(); // Check for redirect result on component mount
-    verifyUser();
-  }, []);
 
   const login = async (email, password) => {
     try {
@@ -156,20 +142,15 @@ const UserContext = ({ children }) => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-  
       const { data } = await api.get("/auth/verify", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-  
       api.defaults.headers["Authorization"] = `Bearer ${token}`;
       setUser(data);
     } catch (error) {
-      console.error("Error verifying user:", error);
-      if (error.response?.status === 404) {
-        console.warn("/auth/verify endpoint not found. Skipping verification.");
-      }
+      console.error("Error verifying user", error);
     } finally {
       setLoading(false);
     }
@@ -188,46 +169,7 @@ const UserContext = ({ children }) => {
     }
   };
 
-  const getGuestID = async () => {
-    let guestID = localStorage.getItem("guestID");
-    if (!guestID) {
-      guestID = `guest-${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem("guestID", guestID);
-    }
-    return guestID;
-  };
-
   //  Cart
-
-  // Add abandoned order to MongoDB
-  
-
-  // Move from abandoned order to completed order (MongoDB update)
-  const convertToOrder = async (order) => {
-    try {
-      await api.post("/auth/complete_order", order); // Send to complete order endpoint
-      // await api.delete(`/auth/abandoned_order/${order._id}`); // Delete from abandoned orders
-    } catch (error) {
-      console.error("Error converting to order", error);
-    }
-  };
-
-  const completeOrder = async () => {
-    try {
-      const completedOrder = {
-        userID: user.userID,
-        cart: cart,
-        status: 'completed',
-      };
-      // Mark as completed in the MongoDB 'orders' collection
-      await convertToOrder(completedOrder); // Convert the abandoned order to a completed order
-      setCart([]); // Clear the cart after order completion
-    } catch (error) {
-      console.error("Error completing order", error);
-    }
-  };
-
-
   const saveCartToDB = async (item) => {
     return api.post(`/auth/cart`, { item });
   };
@@ -237,33 +179,17 @@ const UserContext = ({ children }) => {
   };
 
   const clearCartFromDB = async () => {
-    console.log("Clearing cart from DB...");
-    try {
-      await api.delete(`/auth/cart/clear`);
-      console.log("Cart cleared from DB.");
-    } catch (error) {
-      console.error("Error clearing cart from DB", error);
-    }
+    return api.delete(`/auth/cart/clear`);
   };
-  
 
   const addToCart = async (item) => {
     try {
-
-      const itemToSave = {
-        ...item,
-        status: 'uncompleted', // Mark as uncompleted order
-      };
-
       if (user?.userID) {
         await saveCartToDB(item);
       } else {
-        console.log('settting item...')
-        // TODO: not working this
         localStorage.setItem(`cart`, JSON.stringify([...cart, item]));
       }
-      localStorage.setItem(`cart`, JSON.stringify([...cart, item]));
-      setCart([...cart, itemToSave]);
+      setCart([...cart, item]);
     } catch (error) {
       alert(error);
       console.error("Error adding to cart", error);
@@ -302,57 +228,41 @@ const UserContext = ({ children }) => {
   const clearCart = async (confirm = true) => {
     try {
       if (cart.length === 0) {
-        console.log("Cart is already empty.");
         return;
       }
-  
       if (confirm) {
         await confirmationModal(
           "Clear Cart",
           "Are you sure you want to clear the cart?"
         );
       }
-  
       if (user?.userID) {
-        await clearCartFromDB();  // Make sure this API call is working correctly
+        await clearCartFromDB();
       }
-  
-      // Clear the localStorage
       localStorage.removeItem(`cart`);
-  
-      // Reset cart state
       setCart([]);
-  
-      console.log("Cart cleared successfully.");
     } catch (error) {
       console.error("Error clearing cart", error);
     }
   };
-  
 
   const getCartItems = async () => {
     try {
-      let cart = [];
-  
-      // First, check if there's a cart in localStorage
       const cartItems = localStorage.getItem(`cart`);
+      const cart = [];
       if (cartItems) {
         cart.push(...JSON.parse(cartItems));
       }
-  
-      // If the user is logged in, fetch the cart from the server (DB)
       if (user?.userID) {
         const { data } = await api.get(`/auth/cart`);
         cart.push(...data);
       }
-  
-      // Update the cart state with all items
+
       setCart(cart);
     } catch (error) {
       console.error("Error getting cart items", error);
     }
   };
-  
 
   const updateCartItem = async (id, amount) => {
     try {
@@ -402,7 +312,7 @@ const UserContext = ({ children }) => {
   //orders
   const getOrders = async () => {
     try {
-      const userID = user?.userID || null;
+      const userID = user?.userID || (await getGuestID());
       const { data } = await api.post("/auth/orders", {
         userID,
       });
@@ -412,17 +322,6 @@ const UserContext = ({ children }) => {
       return [];
     }
   };
-
-  /* const getAbandonedOrders = async () => {
-    try {
-      const userID = user?.userID || (await getGuestID());
-      // const { data } = await api.get(`/auth/abandoned_orders/${userID}`);
-      // return data;
-    } catch (error) {
-      console.error("Error getting abandoned orders", error);
-      return [];
-    }
-  }; */
 
   const getOrdersHistory = async () => {
     try {
@@ -509,21 +408,19 @@ const UserContext = ({ children }) => {
     loginWithGoogle,
     logout,
     userLocation,
-    // Cart
+    //cart
     cart,
     addToCart,
-    completeOrder,
-    getMyCoupons,
-    getPaymentIntent,
-    getSetupIntent,
     deleteFromCart,
     clearCart,
-    // Orders
-    getOrders,
-    orders,
-    socket,
-    orderPing,
-    cartPing,
+    getCartItems,
+    updateCartItem,
+    //strip
+    getPaymentIntent,
+    setDefaultCard,
+    removeCard,
+    getSetupIntent,
+    getMyCoupons,
 
     //orders
     getOrders,
@@ -535,14 +432,13 @@ const UserContext = ({ children }) => {
     cartPing,
   };
 
-  
+  useEffect(() => {
+    verifyUser();
+  }, []);
 
   useEffect(() => {
-    // This will ensure cart is loaded from localStorage when the page reloads.
     getCartItems();
     if (!user?.userID) return;
-
-    // If the user is logged in, load their orders.
     getOrders();
 
     const storedLocation = localStorage.getItem("userLocation");
@@ -554,11 +450,13 @@ const UserContext = ({ children }) => {
 
     const newSocket = io(socket_url);
     newSocket.on("connect", () => {
-      newSocket.emit("assign_user", { userID: user?.userID });
+      newSocket.emit("assign_user", {
+        userID: user.userID,
+      });
     });
 
     setSocket(newSocket);
-}, [user]);
+  }, [user]);
 
   useEffect(() => {
     if (!socket) return;
