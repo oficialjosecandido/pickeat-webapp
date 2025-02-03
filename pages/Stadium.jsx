@@ -74,7 +74,11 @@ const Stadium = () => {
             return (
               <Link
                 key={stadium._id}
-                href={`/menu/${stadium._id}`}
+                href={
+                  stadium.restaurants.length === 1
+                    ? `/menu/${stadium._id}`
+                    : `/stadium/${stadium._id}/seat-selection`
+                }
                 className="relative w-full rounded-2xl shadow-sm shadow-black bg-white mb-2"
               >
                 <div className="w-full h-[70%]">
