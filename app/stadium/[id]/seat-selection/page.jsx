@@ -7,67 +7,58 @@ const SeatSelection = () => {
   const { id } = useParams(); // Get stadium ID from the URL
   const router = useRouter();
 
-  const [formData, setFormData] = useState({
-    section: "",
-    row: "",
-    seat: "",
-  });
+  const [section, setSection] = useState("");
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setSection(e.target.value);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Redirect user to the filtered restaurant list based on their seat selection
-    router.push(
-      `/stadium/${id}/restaurants?section=${formData.section}&row=${formData.row}&seat=${formData.seat}`
-    );
+    // Redirect user to the restaurants page with the stadium ID and section
+    router.push(`/stadium/${id}/restaurants?section=${section}`);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <h1 className="text-2xl font-bold mb-6">Enter Your Seat Details</h1>
-      <form onSubmit={handleSubmit} className="w-full max-w-md bg-white p-6 rounded-lg shadow-lg">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
+      <h1 className="text-3xl font-bold text-gray-800 mb-2">Inserisci la tua sezione</h1>
+      <p className="text-gray-600 mb-6 text-center">
+        Controlla il numero della tua sezione sul biglietto qui sotto.
+      </p>
+
+      {/* Mock ticket image */}
+      <div className="bg-white p-4 rounded-lg shadow-lg">
+        <img 
+          src="/media/campnou2.png" 
+          alt="Biglietto Esempio" 
+          className="mb-2 w-72 h-auto rounded-md"
+        />
+        <small className="text-gray-500 text-sm block text-center">Questo è un biglietto di esempio</small>
+      </div>
+
+      <form 
+        onSubmit={handleSubmit} 
+        className="mt-6 w-full max-w-md bg-white p-6 rounded-lg shadow-lg"
+      >
         <div className="mb-4">
-          <label className="block text-sm font-semibold">Section</label>
+          <label className="block text-sm font-semibold text-gray-700">Sezione</label>
           <input
             type="text"
             name="section"
-            value={formData.section}
+            value={section}
             onChange={handleChange}
-            className="w-full p-2 border rounded-md"
+            className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
+            placeholder="Inserisci il numero della sezione"
           />
         </div>
-        <div className="mb-4">
-          <label className="block text-sm font-semibold">Row</label>
-          <input
-            type="text"
-            name="row"
-            value={formData.row}
-            onChange={handleChange}
-            className="w-full p-2 border rounded-md"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-semibold">Seat</label>
-          <input
-            type="text"
-            name="seat"
-            value={formData.seat}
-            onChange={handleChange}
-            className="w-full p-2 border rounded-md"
-            required
-          />
-        </div>
+
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+          className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition font-semibold"
         >
-          Find Restaurants
+          Trova Ristoranti
         </button>
       </form>
     </div>
