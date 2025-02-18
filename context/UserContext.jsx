@@ -266,8 +266,9 @@ const UserContext = ({ children }) => {
 
   const updateCartItem = async (id, amount) => {
     try {
+      const numericAmount = Number(amount);
       if (user?.userID) {
-        await api.put(`/auth/cart`, { amount, itemID: id });
+        await api.put(`/auth/cart`, { amount: numericAmount } );
       } else {
         const storageCart = localStorage.getItem(`cart`);
         if (storageCart) {

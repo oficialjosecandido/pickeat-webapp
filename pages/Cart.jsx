@@ -29,7 +29,7 @@ const Cart = () => {
       return;
     }
     const stadiumId = cart[0].stadiumId;
-    const restaurants = cart.map((item) => item.resId);
+    const restaurants = cart.length > 0 ? cart[0].resId : cart[0].resId;
     const [modalId, updateModalContent] = openModal(
       <OrderDateTime stadiumId={stadiumId} restaurants={restaurants} />
     );
@@ -42,19 +42,17 @@ const Cart = () => {
     );
   };
 
-  const handleUpdateCartItem = async (id, amount) => {
+  const handleUpdateCartItem = async (id, updateData) => {
     try {
       setLoading(true);
-      await updateCartItem(id, amount);
+      await updateCartItem(id, updateData);
     } catch (error) {
-      console.error(
-        "Errore nell'aggiornamento dell'articolo del carrello:",
-        error
-      );
+      console.error("Errore nell'aggiornamento del carrello:", error);
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="flex flex-col bg-white p-4 h-[75vh]">
@@ -67,7 +65,7 @@ const Cart = () => {
           <span className="text-sm text-main-1">Cancella tutto</span>
         </button>
       </div>
-      <div className="mt-4 bg-gray-100 rounded-lg p-4 overflow-auto flex-1">
+      {/* <div className="mt-4 bg-gray-100 rounded-lg p-4 overflow-auto flex-1">
         {cart.map((item, index) => {
           console.log(item);
           return (
@@ -155,7 +153,105 @@ const Cart = () => {
             </div>
           );
         })}
+      </div> */}
+
+<div className="mt-4 bg-gray-100 rounded-lg p-4 overflow-auto flex-1">
+  {cart.map((item, index) => {
+    console.log(item);
+    return (
+      <div
+        key={index}
+        className="rounded-lg border border-black/20 p-2 flex flex-row space-x-3 bg-white"
+        style={{ marginTop: index === 0 ? 0 : 10 }}
+      >
+        <div className="border rounded-lg border-black/20 flex items-center justify-center p-4">
+          <img
+            src={item.imageUrl}
+            alt={item.title}
+            className="w-20 h-20 rounded-full"
+          />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold">{item.title}</h3>
+          <p className="my-1 text-base font-bold text-main-1">
+            {currencies[item.currency]}
+            {item.totalPrice.toFixed(2)}
+          </p>
+          {Array.isArray(item.extras) &&
+            item.extras.map((extra) => (
+              <div key={extra._id} className="flex flex-row items-center justify-between">
+                <span className="text-xs text-black/70">• {extra.title}</span>
+                <span className="text-xs font-bold">
+                  {currencies[item.currency]}
+                  {extra.price?.toFixed(2)}
+                </span>
+              </div>
+            ))}
+
+
+            {item.timeSlot?.time && (
+              <div className="mt-2 p-2 bg-gray-200 rounded-md">
+                <span className="text-xs font-semibold text-black">
+                  Orario selezionato: {String(item.timeSlot.time)}
+                </span>
+              </div>
+            )}
+
+          <div className="flex flex-row items-end justify-between flex-1 pt-2">
+            <div className="flex flex-row items-center space-x-2">
+              <button
+                disabled={loading}
+                onClick={() => {
+                  if (item.amount === 1) {
+                    deleteFromCart(item._id);
+                  } else {
+                    handleUpdateCartItem(item._id, item.amount - 1);
+                  }
+                }}
+                className="p-2 rounded-full border border-black/20"
+              >
+                <Image
+                  src="/icons/minus.png"
+                  alt="Meno"
+                  width={12}
+                  height={12}
+                />
+              </button>
+              <span className="underline">2</span>
+              <button
+                disabled={loading}
+                onClick={() =>
+                  handleUpdateCartItem(item._id, item.amount + 1)
+                }
+                className="p-2 rounded-full border border-black/20"
+              >
+                <Image
+                  src="/icons/add.png"
+                  alt="Aggiungi"
+                  width={12}
+                  height={12}
+                />
+              </button>
+            </div>
+            <button
+              onClick={() => deleteFromCart(item._id)}
+              className="p-2 rounded-full border border-black/20"
+            >
+              <Image
+                src="/icons/close.png"
+                alt="Chiudi"
+                width={12}
+                height={12}
+              />
+            </button>
+          </div>
+        </div>
       </div>
+    );
+  })}
+</div>
+
+
       <button
         onClick={handleCreateOrder}
         disabled={!cart.length || loading}

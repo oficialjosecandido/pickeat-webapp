@@ -5,40 +5,64 @@ import OrderType from "./OrderType";
 import Loader from "./Loader";
 import { useModal } from "@context/ModalContext";
 import { useData } from "@context/DataContext";
+import { useUser } from "@context/UserContext"; // Import useUser
 
 const getTimezoneOffsetInMinutes = () => new Date().getTimezoneOffset();
 
-// Convert a UTC time slot to the user's local time
 const convertToUserTimezone = (slot) => {
-  const timezoneOffset = getTimezoneOffsetInMinutes(); // Get timezone offset
-  const slotDate = moment.utc(slot, "HH:mm"); // Parse the slot in UTC
-
-  // Convert the time by applying the user's local timezone offset
+  const timezoneOffset = getTimezoneOffsetInMinutes();
+  const slotDate = moment.utc(slot, "HH:mm");
   return slotDate.add(-timezoneOffset, "minutes").format("HH:mm");
 };
 
 const OrderDateTime = ({ restaurants, stadiumId }) => {
   const modalContext = useModal();
   const dataContext = useData();
+  const userContext = useUser();
 
   if (!modalContext || !dataContext) return null;
 
   const { updateModalContent } = modalContext;
   const { getAvailableSlots } = dataContext;
-
+  const { cart, updateCartItem } = userContext;
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState(0);
   const [slots, setSlots] = useState([]);
 
   const nextStep = () => {
+    const selectedSlot = slots[selectedTime];
+  
+    if (!selectedSlot) return;
+  
+    const timeSlotData = {
+      time: selectedSlot.time,
+      slotID: selectedSlot._id, // Correct reference
+      timeSlotID: selectedSlot._id, // Ensuring correct usage
+    };
+
+    // ✅ Ensure cart is defined before looping
+    if (cart && cart.length > 0) {
+      cart.forEach((item) => {
+        updateCartItem(item._id, {
+          ...item,
+          timeSlot: timeSlotData,
+        });
+      });
+    }
+
+  
+    cart.forEach((item) => {
+      updateCartItem(item._id, {
+        ...item,
+        timeSlot: timeSlotData,
+      });
+    });
+  
     updateModalContent(
-      <OrderType
-        onBack={onBack}
-        stadiumId={stadiumId}
-        timeSlot={slots[selectedTime]}
-      />
+      <OrderType onBack={onBack} stadiumId={stadiumId} timeSlot={timeSlotData} />
     );
   };
+  
 
   const onBack = () => {
     updateModalContent(
@@ -49,15 +73,25 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
   const fetchAvailableSlots = async () => {
     try {
       setLoading(true);
-      const slots = await getAvailableSlots(restaurants);
-      const localizedSlots = slots.map((slot) => convertToUserTimezone(slot));
-      setSlots(localizedSlots);
+      const response = await getAvailableSlots(restaurants);
+  
+      // Flatten slots, filter available ones, and store both time & _id
+      const availableSlots = response
+        .flatMap((res) => res.slots) // Extract slots
+        .filter((slot) => slot.status) // Keep only those with status: true
+        .map((slot) => ({
+          time: convertToUserTimezone(slot.time), // Convert time
+          _id: slot._id, // Store slot ID
+        }));
+  
+      setSlots(availableSlots);
     } catch (error) {
-      console.error("Errore nel recuperare gli slot disponibili:", error);
+      console.error("Error fetching available slots:", error);
     } finally {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     fetchAvailableSlots();
@@ -72,9 +106,9 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
         <div className="py-4">
           <Loader />
         </div>
-      ) : (
+      ) : slots.length > 0 ? (
         <div className="w-full flex-1 max-h-96 overflow-auto">
-          {(slots || []).map((time, index) => (
+          {slots.map(({ time }, index) => ( // ✅ Destructure `time`
             <button
               onClick={() => setSelectedTime(index)}
               key={index}
@@ -87,19 +121,24 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
                   selectedTime === index ? "text-white" : "text-black"
                 }`}
               >
-                {time}
+                {time} {/* ✅ Now it's a string */}
               </span>
             </button>
           ))}
-          {slots.length < 3 &&
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-10" />
-            ))}
+
         </div>
+      ) : (
+        <p className="text-center text-gray-500 py-4">
+          Nessuna fascia oraria disponibile
+        </p>
       )}
+
       <button
         onClick={nextStep}
-        className="p-4 bg-main-1 rounded-full mb-4 mt-4 text-white font-semibold"
+        className={`p-4 rounded-full mb-4 mt-4 text-white font-semibold ${
+          slots.length > 0 ? "bg-main-1" : "bg-gray-400 cursor-not-allowed"
+        }`}
+        disabled={slots.length === 0}
       >
         Continua
       </button>
