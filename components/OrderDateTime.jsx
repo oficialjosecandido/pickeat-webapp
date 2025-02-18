@@ -31,13 +31,18 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
   const [slots, setSlots] = useState([]);
 
   const nextStep = () => {
-    updateModalContent(
-      <OrderType
-        onBack={onBack}
-        stadiumId={stadiumId}
-        timeSlot={slots[selectedTime]}
-      />
-    );
+    // Ensure you are passing the correct timeSlot object to the next step
+    const selectedSlot = slots[selectedTime?.date]?.[selectedTime?.index]; // Use selectedTime's date and index to reference the exact slot
+  
+    if (selectedSlot) {
+      updateModalContent(
+        <OrderType
+          onBack={onBack}
+          stadiumId={stadiumId}
+          timeSlot={selectedSlot}  // Pass the full selected slot (or its relevant parts) here
+        />
+      );
+    }
   };
 
   const onBack = () => {
@@ -129,14 +134,15 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
       )}
   
       <button
-        onClick={nextStep}
-        className={`p-4 rounded-full mb-4 mt-4 text-white font-semibold ${
-          Object.keys(slots).length > 0 ? "bg-main-1" : "bg-gray-400 cursor-not-allowed"
-        }`}
-        disabled={Object.keys(slots).length === 0}
-      >
-        Continua
-      </button>
+          onClick={nextStep}
+          className={`p-4 rounded-full mb-4 mt-4 text-white font-semibold ${
+            selectedTime ? "bg-main-1" : "bg-gray-400 cursor-not-allowed"
+          }`}
+          disabled={!selectedTime} // Disable button if no time is selected
+        >
+          Continua
+        </button>
+
     </div>
   );
   
