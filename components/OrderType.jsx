@@ -52,6 +52,10 @@ const OrderType = ({ onBack, stadiumId, timeSlot }) => {
         orderType === 0 ? { sector, seat } : { pickupPoint };
       deliveryAddress.floor = floor;
 
+
+      // Ensure the correct timeSlot is selected by matching the time
+    console.log(2222, timeSlot)
+
       // Fetch payment intent from your backend
       const { paymentIntent } = await getPaymentIntent(
         cart,

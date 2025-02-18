@@ -49,15 +49,26 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
   const fetchAvailableSlots = async () => {
     try {
       setLoading(true);
-      const slots = await getAvailableSlots(restaurants);
-      const localizedSlots = slots.map((slot) => convertToUserTimezone(slot));
-      setSlots(localizedSlots);
+      // Assuming getAvailableSlots returns slots in a structure with `time`, `slotID`, and `timeSlotID`
+      const response = await getAvailableSlots(restaurants);
+  
+      const availableSlots = response
+        .flatMap((res) => res.slots) // Extract slots
+        .filter((slot) => slot.status) // Keep only those with status: true
+        .map((slot) => ({
+          time: convertToUserTimezone(slot.time), // Convert time
+          slotID: slot._id,  // Store the correct slotID
+          timeSlotID: slot._id, // Use the slot _id as the timeSlotID (or map to a different field)
+        }));
+  
+      setSlots(availableSlots);
     } catch (error) {
       console.error("Errore nel recuperare gli slot disponibili:", error);
     } finally {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     fetchAvailableSlots();
@@ -72,9 +83,9 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
         <div className="py-4">
           <Loader />
         </div>
-      ) : (
+      ) : slots.length > 0 ? (
         <div className="w-full flex-1 max-h-96 overflow-auto">
-          {(slots || []).map((time, index) => (
+          {slots.map(({ time }, index) => ( // ✅ Destructure `time`
             <button
               onClick={() => setSelectedTime(index)}
               key={index}
@@ -87,19 +98,24 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
                   selectedTime === index ? "text-white" : "text-black"
                 }`}
               >
-                {time}
+                {time} {/* ✅ Now it's a string */}
               </span>
             </button>
           ))}
-          {slots.length < 3 &&
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-10" />
-            ))}
+
         </div>
+      ) : (
+        <p className="text-center text-gray-500 py-4">
+          Nessuna fascia oraria disponibile
+        </p>
       )}
+
       <button
         onClick={nextStep}
-        className="p-4 bg-main-1 rounded-full mb-4 mt-4 text-white font-semibold"
+        className={`p-4 rounded-full mb-4 mt-4 text-white font-semibold ${
+          slots.length > 0 ? "bg-main-1" : "bg-gray-400 cursor-not-allowed"
+        }`}
+        disabled={slots.length === 0}
       >
         Continua
       </button>

@@ -62,9 +62,9 @@ const DataContext = ({ children }) => {
   };
 
   // restuarants
-  const getAvailableSlots = async (restaurantIDs) => {
+  const getAvailableSlots = async (restaurantID ) => {
     try {
-      const { data } = await api.post("/stadiums/slots", { restaurantIDs });
+      const { data } = await api.post("/stadiums/slots", { restaurantID });
       return data;
     } catch (error) {
       console.error("Error getting available slots", error);
