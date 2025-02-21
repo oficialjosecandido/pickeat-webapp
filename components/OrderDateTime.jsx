@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import moment from "moment";
 import OrderType from "./OrderType";
 import Loader from "./Loader";
 import { useModal } from "@context/ModalContext";
 import { useData } from "@context/DataContext";
+import moment from "moment-timezone";
+
 
 const getTimezoneOffsetInMinutes = () => new Date().getTimezoneOffset();
 
@@ -56,6 +57,10 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
       setLoading(true);
       const response = await getAvailableSlots(restaurants);
   
+      // Get current time in CET
+      const currentTimeCET = moment().tz("Europe/Rome").format("HH:mm");
+      const currentDateCET = moment().tz("Europe/Rome").format("YYYY-MM-DD");
+  
       // Process and group slots by date
       const groupedSlots = response.reduce((acc, res) => {
         const date = moment.utc(res.date).format("YYYY-MM-DD"); // Convert date to readable format
@@ -63,9 +68,16 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
           .filter((slot) => slot.status) // Filter only available slots
           .map((slot) => ({
             time: convertToUserTimezone(slot.time), // Convert time to user timezone
-            slotID: slot._id, // Store slot ID
+            slotID: slot._id,
             timeSlotID: slot._id,
-          }));
+          }))
+          .filter(({ time }) => {
+            // Remove past slots for today's date
+            if (date === currentDateCET) {
+              return time >= currentTimeCET;
+            }
+            return true;
+          });
   
         if (availableTimes.length > 0) {
           acc[date] = availableTimes;
@@ -80,6 +92,8 @@ const OrderDateTime = ({ restaurants, stadiumId }) => {
       setLoading(false);
     }
   };
+  
+  
   
   
 
