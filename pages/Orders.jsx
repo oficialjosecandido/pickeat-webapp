@@ -74,7 +74,7 @@ const Orders = () => {
                 <div className="flex items-center space-x-1">
                   <img src="/icons/timer.png" alt="Timer" className="h-5 w-5" />
                   <p className="text-xs font-semibold">
-                    {moment(order.timeSlot, "HH:mm").fromNow()}
+                    {moment(order.timeSlot.time, "HH:mm").fromNow()}
                   </p>
                 </div>
               )}
@@ -106,9 +106,17 @@ const Orders = () => {
                         </p>
                       ))}
                     </div>
-                    <p className="text-xs font-semibold mt-auto">
-                      Quantità: {item.quantity}
-                    </p>
+                    <div>
+                      <p className="text-xs font-semibold mt-auto">
+                        Totale: € {order.totalPrice}
+                      </p>
+                      <p className="text-xs font-semibold text-gray-600">
+                        Stato: {order.status.toUpperCase()}
+                      </p>
+                      <p className="text-xs font-semibold text-gray-600">
+                        Orario: {moment(order.timeSlot.time, "HH:mm").format("HH:mm")}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
